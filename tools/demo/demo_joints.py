@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import argparse
 import hydra
 from hydra import initialize_config_module, compose
 from pathlib import Path
@@ -8,6 +7,7 @@ from pytorch3d.transforms import quaternion_to_matrix
 from tqdm import tqdm
 import requests
 import tempfile
+import os
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
@@ -22,24 +22,21 @@ from hmr4d.utils.smplx_utils import make_smplx
 CRF = 23  # quality parameter (unused in joint extraction)
 
 
-def parse_args_to_cfg():
-    """Parse arguments and create the configuration."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--video",
-        type=str,
-        default="inputs/demo/dance_3.mp4",
-        help="Path to a local video file or a video URL",
-    )
-    parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
-    parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
-    parser.add_argument("--verbose", action="store_true", help="If true, show extra logs")
-    args = parser.parse_args()
-
-    # Check if the video argument is a URL. If so, download it as a temporary file.
-    if args.video.startswith("http"):
-        Log.info(f"[Download] Downloading video from URL: {args.video}")
-        response = requests.get(args.video, stream=True)
+def get_config_from_video(video_input: str, output_root: str = None, static_cam: bool = False, verbose: bool = False):
+    """
+    If video_input is a URL, download it locally; otherwise, use it directly.
+    Builds and returns the Hydra configuration along with a flag indicating whether
+    the video was downloaded temporarily.
+    
+    Returns:
+      cfg: Hydra configuration object.
+      temp_video: Boolean, True if the video was downloaded.
+      video_path: The local Path to the video.
+    """
+    temp_video = False
+    if video_input.startswith("http"):
+        Log.info(f"[Download] Downloading video from URL: {video_input}")
+        response = requests.get(video_input, stream=True)
         response.raise_for_status()
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_file:
             for chunk in response.iter_content(chunk_size=8192):
@@ -48,8 +45,9 @@ def parse_args_to_cfg():
             tmp_video_path = Path(tmp_file.name)
         Log.info(f"[Download] Video downloaded to temporary file: {tmp_video_path}")
         video_path = tmp_video_path
+        temp_video = True
     else:
-        video_path = Path(args.video)
+        video_path = Path(video_input)
 
     assert video_path.exists(), f"Video not found at {video_path}"
     length, width, height = get_video_lwh(video_path)
@@ -59,11 +57,11 @@ def parse_args_to_cfg():
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
             f"video_name={video_path.stem}",
-            f"static_cam={args.static_cam}",
-            f"verbose={args.verbose}",
+            f"static_cam={static_cam}",
+            f"verbose={verbose}",
         ]
-        if args.output_root is not None:
-            overrides.append(f"output_root={args.output_root}")
+        if output_root is not None:
+            overrides.append(f"output_root={output_root}")
         register_store_gvhmr()
         cfg = compose(config_name="demo", overrides=overrides)
 
@@ -71,9 +69,9 @@ def parse_args_to_cfg():
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Use the downloaded or original video path directly.
+    # Set the video path in the config
     cfg.video_path = str(video_path)
-    return cfg
+    return cfg, temp_video, video_path
 
 
 @torch.no_grad()
@@ -211,14 +209,34 @@ def process_video(cfg, model, smplx_model):
     Log.info(f"Extracted joints saved to {joints_path}")
 
 
-def main_orchestration():
-    """Main orchestration function that loads models and processes the video."""
-    cfg = parse_args_to_cfg()
+def main_orchestration(video_input: str):
+    """
+    Main orchestration function that:
+      - Downloads the video from a URL (if needed),
+      - Builds the configuration,
+      - Loads models,
+      - Processes the video,
+      - And then deletes the temporary video file (if downloaded).
+    """
+    cfg, temp_video, video_path = get_config_from_video(video_input)
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
     process_video(cfg, model, smplx_model)
 
+    # Delete the temporary video file if it was downloaded
+    if temp_video:
+        try:
+            video_path.unlink()  # Remove the temporary file
+            Log.info(f"Temporary video file {video_path} deleted.")
+        except Exception as e:
+            Log.error(f"Failed to delete temporary video file {video_path}: {e}")
+
 
 if __name__ == "__main__":
-    main_orchestration()
+    # Example usage: pass the video URL directly
+    video_url = (
+        "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/"
+        "o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
+    )
+    main_orchestration(video_url)
