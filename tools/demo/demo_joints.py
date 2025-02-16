@@ -9,6 +9,7 @@ from tqdm import tqdm
 import requests
 import tempfile  # still imported in case you need it elsewhere
 from uuid import uuid4  # for generating random IDs
+from dataset import load_dataset
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
@@ -261,5 +262,19 @@ def main_orchestration(video_url=None):
 
 if __name__ == "__main__":
     # Pass the desired video URL here. If None, the default (or command-line) is used.
-    joints = main_orchestration(video_url=video_url)
-    print(joints)
+
+    dsn = "amuvarma/video_url_one_person-debug"
+    ds = load_dataset(dsn, split="train")
+
+    #map the dataset through 
+
+    def map_fn(x):
+        video_url = x["video_url"]
+        joints = main_orchestration(video_url=video_url)
+        x["joints"] = joints
+        return x
+    
+    ds = ds.map(map_fn, num_proc=1)
+    
+    print(ds)
+    ds.push_to_hub("amuvarma/video_url_one_person-debug-joints")
