@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import argparse
 import hydra
 from hydra import initialize_config_module, compose
 from pathlib import Path
@@ -21,22 +22,24 @@ from hmr4d.utils.smplx_utils import make_smplx
 CRF = 23  # quality parameter (unused in joint extraction)
 
 
-def get_config(
-    video_input: str,
-    output_root: str = None,
-    static_cam: bool = False,
-    verbose: bool = False,
-):
-    """
-    Create the configuration from a given video input.
-    
-    If the video_input is a URL (i.e. starts with 'http'), the video is downloaded
-    into a temporary file.
-    """
-    # Check if the provided video_input is a URL.
-    if video_input.startswith("http"):
-        Log.info(f"[Download] Downloading video from URL: {video_input}")
-        response = requests.get(video_input, stream=True)
+def parse_args_to_cfg():
+    """Parse arguments and create the configuration."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--video",
+        type=str,
+        default="inputs/demo/dance_3.mp4",
+        help="Path to a local video file or a video URL",
+    )
+    parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
+    parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
+    parser.add_argument("--verbose", action="store_true", help="If true, show extra logs")
+    args = parser.parse_args()
+
+    # Check if the video argument is a URL. If so, download it as a temporary file.
+    if args.video.startswith("http"):
+        Log.info(f"[Download] Downloading video from URL: {args.video}")
+        response = requests.get(args.video, stream=True)
         response.raise_for_status()
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_file:
             for chunk in response.iter_content(chunk_size=8192):
@@ -46,7 +49,7 @@ def get_config(
         Log.info(f"[Download] Video downloaded to temporary file: {tmp_video_path}")
         video_path = tmp_video_path
     else:
-        video_path = Path(video_input)
+        video_path = Path(args.video)
 
     assert video_path.exists(), f"Video not found at {video_path}"
     length, width, height = get_video_lwh(video_path)
@@ -56,11 +59,11 @@ def get_config(
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
             f"video_name={video_path.stem}",
-            f"static_cam={static_cam}",
-            f"verbose={verbose}",
+            f"static_cam={args.static_cam}",
+            f"verbose={args.verbose}",
         ]
-        if output_root is not None:
-            overrides.append(f"output_root={output_root}")
+        if args.output_root is not None:
+            overrides.append(f"output_root={args.output_root}")
         register_store_gvhmr()
         cfg = compose(config_name="demo", overrides=overrides)
 
@@ -68,7 +71,7 @@ def get_config(
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Use the downloaded (or original) video path directly.
+    # Use the downloaded or original video path directly.
     cfg.video_path = str(video_path)
     return cfg
 
@@ -179,9 +182,6 @@ def process_video(cfg, model, smplx_model):
       1. Preprocess the video.
       2. Run HMR4D prediction.
       3. Extract and save joint positions.
-      
-    Returns:
-      joints as a list of lists.
     """
     # Run preprocessing
     run_preprocess(cfg)
@@ -205,37 +205,20 @@ def process_video(cfg, model, smplx_model):
     smplx_out = smplx_model(**to_cuda(pred["smpl_params_global"]))
     joints = detach_to_cpu(smplx_out.joints)
 
-    # Convert joints tensor to a list of lists
-    joints_list = joints.tolist()
-
-    # Optionally, save the joints tensor to a file
+    # Save joints to file
     joints_path = Path(cfg.output_dir) / "joints.pt"
     torch.save(joints, joints_path)
     Log.info(f"Extracted joints saved to {joints_path}")
 
-    return joints_list
 
-
-def main_orchestration(video_input: str):
-    """
-    Main orchestration function that takes a video input (URL or local file path),
-    downloads it if necessary, builds the configuration, loads the models, processes
-    the video, and returns the joints as a list of lists.
-    """
-    cfg = get_config(video_input)
+def main_orchestration():
+    """Main orchestration function that loads models and processes the video."""
+    cfg = parse_args_to_cfg()
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
-    joints = process_video(cfg, model, smplx_model)
-
-    return joints
+    process_video(cfg, model, smplx_model)
 
 
-# Example usage:
 if __name__ == "__main__":
-    video_url = (
-        "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/"
-        "o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
-    )
-    returned_joints = main_orchestration(video_url)
-    print("returned_joints:", len(returned_joints))
+    main_orchestration()
