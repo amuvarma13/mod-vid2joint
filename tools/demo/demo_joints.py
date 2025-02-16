@@ -179,6 +179,9 @@ def process_video(cfg, model, smplx_model):
       1. Preprocess the video.
       2. Run HMR4D prediction.
       3. Extract and save joint positions.
+      
+    Returns:
+      joints as a list of lists.
     """
     # Run preprocessing
     run_preprocess(cfg)
@@ -202,23 +205,30 @@ def process_video(cfg, model, smplx_model):
     smplx_out = smplx_model(**to_cuda(pred["smpl_params_global"]))
     joints = detach_to_cpu(smplx_out.joints)
 
-    # Save joints to file
+    # Convert joints tensor to a list of lists
+    joints_list = joints.tolist()
+
+    # Optionally, save the joints tensor to a file
     joints_path = Path(cfg.output_dir) / "joints.pt"
     torch.save(joints, joints_path)
     Log.info(f"Extracted joints saved to {joints_path}")
+
+    return joints_list
 
 
 def main_orchestration(video_input: str):
     """
     Main orchestration function that takes a video input (URL or local file path),
-    downloads it if necessary, builds the configuration, loads the models, and
-    processes the video.
+    downloads it if necessary, builds the configuration, loads the models, processes
+    the video, and returns the joints as a list of lists.
     """
     cfg = get_config(video_input)
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
-    process_video(cfg, model, smplx_model)
+    joints = process_video(cfg, model, smplx_model)
+
+    return joints
 
 
 # Example usage:
@@ -227,4 +237,5 @@ if __name__ == "__main__":
         "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/"
         "o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
     )
-    main_orchestration(video_url)
+    returned_joints = main_orchestration(video_url)
+    print("returned_joints:", len(returned_joints))
