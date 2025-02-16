@@ -8,6 +8,7 @@ from pytorch3d.transforms import quaternion_to_matrix
 from tqdm import tqdm
 import requests
 import tempfile  # still imported in case you need it elsewhere
+from uuid import uuid4  # for generating random IDs
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
@@ -45,18 +46,22 @@ def parse_args_to_cfg(video_url_override=None):
     if video_url_override is not None:
         args.video = video_url_override
 
-    # Check if the video argument is a URL. If so, download it as remote_vid.mp4.
+    # Check if the video argument is a URL. If so, download it.
     if args.video.startswith("http"):
         Log.info(f"[Download] Downloading video from URL: {args.video}")
         response = requests.get(args.video, stream=True)
         response.raise_for_status()
-        remote_vid_path = Path("remote_vid.mp4")
-        with remote_vid_path.open("wb") as f:
+        # Save the video to a randomly named file in the temps/ folder.
+        temp_dir = Path("temps")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        random_filename = f"{uuid4().hex}.mp4"
+        temp_vid_path = temp_dir / random_filename
+        with temp_vid_path.open("wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-        Log.info(f"[Download] Video downloaded to {remote_vid_path}")
-        video_path = remote_vid_path
+        Log.info(f"[Download] Video downloaded to {temp_vid_path}")
+        video_path = temp_vid_path
     else:
         video_path = Path(args.video)
 
@@ -241,9 +246,9 @@ def main_orchestration(video_url=None):
     model, smplx_model = load_models(cfg)
     joints_tensor = process_video(cfg, model, smplx_model)
     
-    # Delete the downloaded video if it is remote_vid.mp4
+    # Delete the downloaded video if it was saved in the temps/ folder.
     downloaded_video = Path(cfg.video_path)
-    if downloaded_video.name == "remote_vid.mp4":
+    if downloaded_video.parent.name == "temps":
         try:
             downloaded_video.unlink()
             Log.info(f"Deleted downloaded video: {downloaded_video}")
