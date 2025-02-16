@@ -15,6 +15,10 @@ from hmr4d.utils.net_utils import detach_to_cpu, to_cuda
 from hmr4d.utils.smplx_utils import make_smplx
 from hmr4d.utils.pylogger import Log
 
+from hydra import initialize_config_module, compose
+import hydra.utils
+
+
 # Global models (to be loaded once)
 global_model = None
 global_smplx_model = None
@@ -137,20 +141,25 @@ def load_data_dict(cfg):
     }
     return data
 
+
 def init_global_models():
     """
     Load the HMR4D and SMPL-X models once and store them as globals.
-    Adjust the checkpoint path and instantiation as needed.
+    This version uses Hydra to instantiate the HMR4D model with its required arguments,
+    including the 'pipeline' parameter.
     """
     global global_model, global_smplx_model
-    Log.info("[Model] Loading HMR4D model...")
-    ckpt_path = "path/to/hmr4d_checkpoint.ckpt"  # <<=== Update this to your actual checkpoint path.
-    global_model = DemoPL()  # Instantiate your model (adjust if your DemoPL requires config arguments)
-    global_model.load_pretrained_model(ckpt_path)
+    Log.info("[Model] Loading HMR4D model using Hydra configuration...")
+    with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
+        cfg_model = compose(config_name="demo")
+    # Instantiate the model using the configuration (this will supply the required 'pipeline')
+    global_model = hydra.utils.instantiate(cfg_model.model, _recursive_=False)
+    global_model.load_pretrained_model(cfg_model.ckpt_path)
     global_model = global_model.eval().cuda()
 
     Log.info("[Model] Loading SMPL-X model for joint extraction...")
     global_smplx_model = make_smplx("supermotion").cuda()
+
 
 def process_video_row(row):
     """
