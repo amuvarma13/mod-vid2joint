@@ -7,8 +7,8 @@ from pathlib import Path
 from pytorch3d.transforms import quaternion_to_matrix
 from tqdm import tqdm
 import requests
-import tempfile  # still imported in case you need it elsewhere
-from uuid import uuid4  # for generating random IDs
+import tempfile
+from uuid import uuid4
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
@@ -20,10 +20,13 @@ from hmr4d.model.gvhmr.gvhmr_pl_demo import DemoPL
 from hmr4d.utils.net_utils import detach_to_cpu, to_cuda
 from hmr4d.utils.smplx_utils import make_smplx
 
+# For dataset processing:
+from datasets import load_dataset
+
 CRF = 23  # quality parameter (unused in joint extraction)
 
 # --- Default video URL variable ---
-video_url = (
+default_video_url = (
     "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/"
     "o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
 )
@@ -34,13 +37,13 @@ def parse_args_to_cfg(video_url_override=None):
     parser.add_argument(
         "--video",
         type=str,
-        default=video_url,  # default is the provided remote video URL
+        default=default_video_url,  # default is the provided remote video URL
         help="Path to a local video file or a video URL",
     )
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
     parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
     parser.add_argument("--verbose", action="store_true", help="If true, show extra logs")
-    args = parser.parse_args()
+    args = parser.parse_args([])  # empty list so that it does not parse sys.argv
 
     # Override the video URL if a parameter is provided.
     if video_url_override is not None:
@@ -88,7 +91,6 @@ def parse_args_to_cfg(video_url_override=None):
     # Use the downloaded or original video path directly.
     cfg.video_path = str(video_path)
     return cfg
-
 
 @torch.no_grad()
 def run_preprocess(cfg):
@@ -150,7 +152,6 @@ def run_preprocess(cfg):
 
     Log.info(f"[Preprocess] End. Time elapsed: {Log.time()-tic:.2f}s")
 
-
 def load_data_dict(cfg):
     """Load data from preprocessed files to form the input for HMR4D."""
     paths = cfg.paths
@@ -173,7 +174,6 @@ def load_data_dict(cfg):
     }
     return data
 
-
 def load_models(cfg):
     """
     Load the HMR4D model and the SMPL-X model for joint extraction.
@@ -188,7 +188,6 @@ def load_models(cfg):
 
     return model, smplx_model
 
-
 @torch.no_grad()
 def process_video(cfg, model, smplx_model):
     """
@@ -200,7 +199,6 @@ def process_video(cfg, model, smplx_model):
     Returns:
         joints (torch.Tensor): The extracted joints.
     """
-    # Run preprocessing
     run_preprocess(cfg)
     data = load_data_dict(cfg)
     paths = cfg.paths
@@ -217,18 +215,14 @@ def process_video(cfg, model, smplx_model):
     else:
         pred = torch.load(paths.hmr4d_results)
 
-    # Joint extraction using the SMPL-X model
     Log.info("[Joint Extraction] Extracting joints from SMPL parameters...")
     smplx_out = smplx_model(**to_cuda(pred["smpl_params_global"]))
     joints = detach_to_cpu(smplx_out.joints)
 
-    # Save joints to file
     joints_path = Path(cfg.output_dir) / "joints.pt"
     torch.save(joints, joints_path)
     Log.info(f"Extracted joints saved to {joints_path}")
-
     return joints
-
 
 def main_orchestration(video_url=None):
     """
@@ -255,11 +249,29 @@ def main_orchestration(video_url=None):
         except Exception as e:
             Log.warning(f"Failed to delete downloaded video: {e}")
 
-    # Convert the tensor to a list of lists before returning.
     return joints_tensor.tolist()
 
+# ---------------------------------------------------------
+# Now, load the HF dataset and add a "joints" column.
+# ---------------------------------------------------------
+
+def compute_joints(example):
+    """
+    For a given dataset example, process the video and compute joints.
+    The 'video_url' field is used as input.
+    """
+    print("Processing video:", example["video_url"])
+    joints = main_orchestration(video_url=example["video_url"])
+    return {"joints": joints}
 
 if __name__ == "__main__":
-    # Pass the desired video URL here. If None, the default (or command-line) is used.
-    joints = main_orchestration(video_url=video_url)
-    print(joints)
+    # Load the dataset from Hugging Face.
+    dataset = load_dataset("amuvarma/video_url_one_person-debug")
+
+    # Process each example to compute joints. This adds a new column "joints".
+    dataset = dataset.map(compute_joints)
+
+    # Optionally, save the updated dataset to disk.
+    dataset.save_to_disk("processed_dataset_with_joints")
+
+    print("Dataset updated with the 'joints' column.")
