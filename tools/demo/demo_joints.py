@@ -8,7 +8,6 @@ from pytorch3d.transforms import quaternion_to_matrix
 from tqdm import tqdm
 import requests
 import tempfile
-import os
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
@@ -37,8 +36,7 @@ def parse_args_to_cfg():
     parser.add_argument("--verbose", action="store_true", help="If true, show extra logs")
     args = parser.parse_args()
 
-    temp_video = False
-    # If the video argument is a URL, download it as a temporary file.
+    # Check if the video argument is a URL. If so, download it as a temporary file.
     if args.video.startswith("http"):
         Log.info(f"[Download] Downloading video from URL: {args.video}")
         response = requests.get(args.video, stream=True)
@@ -50,7 +48,6 @@ def parse_args_to_cfg():
             tmp_video_path = Path(tmp_file.name)
         Log.info(f"[Download] Video downloaded to temporary file: {tmp_video_path}")
         video_path = tmp_video_path
-        temp_video = True
     else:
         video_path = Path(args.video)
 
@@ -76,8 +73,6 @@ def parse_args_to_cfg():
 
     # Use the downloaded or original video path directly.
     cfg.video_path = str(video_path)
-    # Store a flag indicating whether the video is temporary.
-    cfg.temp_video = temp_video
     return cfg
 
 
@@ -223,15 +218,6 @@ def main_orchestration():
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
     process_video(cfg, model, smplx_model)
-
-    # Delete the temporary video file if it was downloaded
-    if getattr(cfg, "temp_video", False):
-        video_path = Path(cfg.video_path)
-        try:
-            video_path.unlink()  # Remove the temporary file
-            Log.info(f"Temporary video file {video_path} deleted.")
-        except Exception as e:
-            Log.error(f"Failed to delete temporary video file {video_path}: {e}")
 
 
 if __name__ == "__main__":
