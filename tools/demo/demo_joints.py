@@ -9,7 +9,7 @@ from tqdm import tqdm
 import requests
 import tempfile  # still imported in case you need it elsewhere
 from uuid import uuid4  # for generating random IDs
-from dataset import load_dataset
+from datasets import load_dataset
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
