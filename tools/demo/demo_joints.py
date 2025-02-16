@@ -9,11 +9,7 @@ from tqdm import tqdm
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
-from hmr4d.utils.video_io_utils import (
-    get_video_lwh,
-    get_writer,
-    get_video_reader,
-)
+from hmr4d.utils.video_io_utils import get_video_lwh, get_video_reader
 from hmr4d.utils.preproc import Tracker, Extractor, VitPoseExtractor, SLAMModel
 from hmr4d.utils.geo.hmr_cam import get_bbx_xys_from_xyxy, estimate_K, convert_K_to_K4
 from hmr4d.utils.geo_transform import compute_cam_angvel
@@ -21,7 +17,7 @@ from hmr4d.model.gvhmr.gvhmr_pl_demo import DemoPL
 from hmr4d.utils.net_utils import detach_to_cpu, to_cuda
 from hmr4d.utils.smplx_utils import make_smplx
 
-CRF = 23  # quality parameter for video saving (not used for joint extraction)
+CRF = 23  # quality parameter (unused in joint extraction)
 
 
 def parse_args_to_cfg():
@@ -54,16 +50,8 @@ def parse_args_to_cfg():
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Copy raw-input-video to cfg.video_path if needed.
-    Log.info(f"[Copy Video] {video_path} -> {cfg.video_path}")
-    if (not Path(cfg.video_path).exists() or
-            get_video_lwh(video_path)[0] != get_video_lwh(cfg.video_path)[0]):
-        reader = get_video_reader(video_path)
-        writer = get_writer(cfg.video_path, fps=30, crf=CRF)
-        for img in tqdm(reader, total=get_video_lwh(video_path)[0], desc="Copying video"):
-            writer.write_frame(img)
-        writer.close()
-        reader.close()
+    # Instead of copying the video, we simply use the provided video path directly.
+    cfg.video_path = str(video_path)
 
     return cfg
 
@@ -176,7 +164,6 @@ if __name__ == "__main__":
         pred = torch.load(paths.hmr4d_results)
 
     # --- Joint Extraction ---
-    # Here we use the SMPL-X (or similar) body model to obtain joint positions.
     smplx = make_smplx("supermotion").cuda()
     smplx_out = smplx(**to_cuda(pred["smpl_params_global"]))
     joints = detach_to_cpu(smplx_out.joints)
