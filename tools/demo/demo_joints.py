@@ -274,7 +274,7 @@ if __name__ == "__main__":
         x["joints"] = joints
         return x
     
-    ds = ds.map(map_fn, num_proc=1)
+    ds = ds.map(map_fn, num_proc=5)
     
     print(ds)
     ds.push_to_hub("amuvarma/video_url_one_person-debug-joints")
