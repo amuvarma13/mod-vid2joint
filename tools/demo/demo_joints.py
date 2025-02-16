@@ -191,6 +191,9 @@ def process_video(cfg, model, smplx_model):
       1. Preprocess the video.
       2. Run HMR4D prediction.
       3. Extract and save joint positions.
+    
+    Returns:
+        joints (torch.Tensor): The extracted joints.
     """
     # Run preprocessing
     run_preprocess(cfg)
@@ -219,6 +222,8 @@ def process_video(cfg, model, smplx_model):
     torch.save(joints, joints_path)
     Log.info(f"Extracted joints saved to {joints_path}")
 
+    return joints
+
 
 def main_orchestration(video_url=None):
     """
@@ -226,14 +231,20 @@ def main_orchestration(video_url=None):
     
     Parameters:
         video_url (str, optional): A video URL to override the default video path.
+    
+    Returns:
+        list of lists: The extracted joints.
     """
     cfg = parse_args_to_cfg(video_url_override=video_url)
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
-    process_video(cfg, model, smplx_model)
+    joints_tensor = process_video(cfg, model, smplx_model)
+    # Convert the tensor to a list of lists before returning.
+    return joints_tensor.tolist()
 
 
 if __name__ == "__main__":
     # Pass the desired video URL here. If None, the default (or command-line) is used.
-    main_orchestration(video_url=video_url)
+    joints = main_orchestration(video_url=video_url)
+    print(joints)
