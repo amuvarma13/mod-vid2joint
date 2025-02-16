@@ -272,6 +272,6 @@ if __name__ == "__main__":
     dataset = dataset.map(compute_joints)
 
     # Optionally, save the updated dataset to disk.
-    dataset.save_to_disk("processed_dataset_with_joints")
+    dataset.push_to_hub("processed_dataset_with_joints")
 
     print("Dataset updated with the 'joints' column.")
