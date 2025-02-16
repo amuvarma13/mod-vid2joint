@@ -21,7 +21,7 @@ CRF = 23  # quality parameter (unused in joint extraction)
 
 
 def parse_args_to_cfg():
-    # Set up argument parsing and configuration.
+    """Parse arguments and create the configuration."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", type=str, default="inputs/demo/dance_3.mp4")
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
@@ -50,14 +50,14 @@ def parse_args_to_cfg():
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Instead of copying the video, we simply use the provided video path directly.
+    # Use the original video path directly.
     cfg.video_path = str(video_path)
-
     return cfg
 
 
 @torch.no_grad()
 def run_preprocess(cfg):
+    """Run preprocessing to generate necessary inputs for HMR4D."""
     Log.info("[Preprocess] Start!")
     tic = Log.time()
     video_path = cfg.video_path
@@ -108,7 +108,7 @@ def run_preprocess(cfg):
                     bar.update()
                 else:
                     break
-            slam_results = slam.process()  # (L, 7), numpy array
+            slam_results = slam.process()  # (L, 7) numpy array
             torch.save(slam_results, paths.slam)
         else:
             Log.info(f"[Preprocess] Loaded slam results from {paths.slam}")
@@ -117,6 +117,7 @@ def run_preprocess(cfg):
 
 
 def load_data_dict(cfg):
+    """Load data from preprocessed files to form the input for HMR4D."""
     paths = cfg.paths
     length, width, height = get_video_lwh(cfg.video_path)
     if cfg.static_cam:
@@ -138,22 +139,37 @@ def load_data_dict(cfg):
     return data
 
 
-if __name__ == "__main__":
-    cfg = parse_args_to_cfg()
-    paths = cfg.paths
-    Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
-    Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
+def load_models(cfg):
+    """
+    Load the HMR4D model and the SMPL-X model for joint extraction.
+    """
+    Log.info("[Model] Loading HMR4D model...")
+    model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
+    model.load_pretrained_model(cfg.ckpt_path)
+    model = model.eval().cuda()
 
-    # --- Preprocess ---
+    Log.info("[Model] Loading SMPL-X model for joint extraction...")
+    smplx_model = make_smplx("supermotion").cuda()
+
+    return model, smplx_model
+
+
+@torch.no_grad()
+def process_video(cfg, model, smplx_model):
+    """
+    Orchestrate the video processing:
+      1. Preprocess the video.
+      2. Run HMR4D prediction.
+      3. Extract and save joint positions.
+    """
+    # Run preprocessing
     run_preprocess(cfg)
     data = load_data_dict(cfg)
+    paths = cfg.paths
 
-    # --- HMR4D Prediction ---
+    # Run HMR4D Prediction
     if not Path(paths.hmr4d_results).exists():
         Log.info("[HMR4D] Predicting...")
-        model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
-        model.load_pretrained_model(cfg.ckpt_path)
-        model = model.eval().cuda()
         tic = Log.sync_time()
         pred = model.predict(data, static_cam=cfg.static_cam)
         pred = detach_to_cpu(pred)
@@ -163,12 +179,25 @@ if __name__ == "__main__":
     else:
         pred = torch.load(paths.hmr4d_results)
 
-    # --- Joint Extraction ---
-    smplx = make_smplx("supermotion").cuda()
-    smplx_out = smplx(**to_cuda(pred["smpl_params_global"]))
+    # Joint extraction using the SMPL-X model
+    Log.info("[Joint Extraction] Extracting joints from SMPL parameters...")
+    smplx_out = smplx_model(**to_cuda(pred["smpl_params_global"]))
     joints = detach_to_cpu(smplx_out.joints)
 
-    # Save joints to a file (e.g. joints.pt in the output directory)
+    # Save joints to file
     joints_path = Path(cfg.output_dir) / "joints.pt"
     torch.save(joints, joints_path)
     Log.info(f"Extracted joints saved to {joints_path}")
+
+
+def main_orchestration():
+    """Main orchestration function that loads models and processes the video."""
+    cfg = parse_args_to_cfg()
+    Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
+    Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
+    model, smplx_model = load_models(cfg)
+    process_video(cfg, model, smplx_model)
+
+
+if __name__ == "__main__":
+    main_orchestration()
