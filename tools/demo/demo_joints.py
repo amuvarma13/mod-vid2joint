@@ -240,6 +240,16 @@ def main_orchestration(video_url=None):
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
     joints_tensor = process_video(cfg, model, smplx_model)
+    
+    # Delete the downloaded video if it is remote_vid.mp4
+    downloaded_video = Path(cfg.video_path)
+    if downloaded_video.name == "remote_vid.mp4":
+        try:
+            downloaded_video.unlink()
+            Log.info(f"Deleted downloaded video: {downloaded_video}")
+        except Exception as e:
+            Log.warning(f"Failed to delete downloaded video: {e}")
+
     # Convert the tensor to a list of lists before returning.
     return joints_tensor.tolist()
 
