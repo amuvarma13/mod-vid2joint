@@ -7,7 +7,8 @@ from pathlib import Path
 from pytorch3d.transforms import quaternion_to_matrix
 from tqdm import tqdm
 import requests
-import tempfile
+
+import tempfile  # still imported in case you need it elsewhere
 
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import register_store_gvhmr
@@ -21,6 +22,11 @@ from hmr4d.utils.smplx_utils import make_smplx
 
 CRF = 23  # quality parameter (unused in joint extraction)
 
+# --- Added video_url variable ---
+video_url = (
+    "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/"
+    "o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
+)
 
 def parse_args_to_cfg():
     """Parse arguments and create the configuration."""
@@ -28,7 +34,7 @@ def parse_args_to_cfg():
     parser.add_argument(
         "--video",
         type=str,
-        default="inputs/demo/dance_3.mp4",
+        default=video_url,  # changed default to our remote video URL
         help="Path to a local video file or a video URL",
     )
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
@@ -36,18 +42,18 @@ def parse_args_to_cfg():
     parser.add_argument("--verbose", action="store_true", help="If true, show extra logs")
     args = parser.parse_args()
 
-    # Check if the video argument is a URL. If so, download it as a temporary file.
+    # Check if the video argument is a URL. If so, download it as remote_vid.mp4.
     if args.video.startswith("http"):
         Log.info(f"[Download] Downloading video from URL: {args.video}")
         response = requests.get(args.video, stream=True)
         response.raise_for_status()
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_file:
+        remote_vid_path = Path("remote_vid.mp4")
+        with remote_vid_path.open("wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
-                    tmp_file.write(chunk)
-            tmp_video_path = Path(tmp_file.name)
-        Log.info(f"[Download] Video downloaded to temporary file: {tmp_video_path}")
-        video_path = tmp_video_path
+                    f.write(chunk)
+        Log.info(f"[Download] Video downloaded to {remote_vid_path}")
+        video_path = remote_vid_path
     else:
         video_path = Path(args.video)
 
