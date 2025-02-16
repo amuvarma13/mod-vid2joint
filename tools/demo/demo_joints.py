@@ -275,7 +275,7 @@ if __name__ == "__main__":
         x["joints"] = joints
         return x
     start_time = time.time()
-    ds = ds.map(map_fn, num_proc=1)
+    ds = ds.map(map_fn, num_proc=4)
     print("Time taken: ", time.time() - start_time)
     
     print(ds)
