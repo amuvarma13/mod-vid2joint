@@ -7,7 +7,6 @@ from pathlib import Path
 from pytorch3d.transforms import quaternion_to_matrix
 from tqdm import tqdm
 import requests
-
 import tempfile  # still imported in case you need it elsewhere
 
 from hmr4d.utils.pylogger import Log
@@ -22,25 +21,29 @@ from hmr4d.utils.smplx_utils import make_smplx
 
 CRF = 23  # quality parameter (unused in joint extraction)
 
-# --- Added video_url variable ---
+# --- Default video URL variable ---
 video_url = (
     "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/"
     "o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
 )
 
-def parse_args_to_cfg():
+def parse_args_to_cfg(video_url_override=None):
     """Parse arguments and create the configuration."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--video",
         type=str,
-        default=video_url,  # changed default to our remote video URL
+        default=video_url,  # default is the provided remote video URL
         help="Path to a local video file or a video URL",
     )
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
     parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
     parser.add_argument("--verbose", action="store_true", help="If true, show extra logs")
     args = parser.parse_args()
+
+    # Override the video URL if a parameter is provided.
+    if video_url_override is not None:
+        args.video = video_url_override
 
     # Check if the video argument is a URL. If so, download it as remote_vid.mp4.
     if args.video.startswith("http"):
@@ -217,9 +220,14 @@ def process_video(cfg, model, smplx_model):
     Log.info(f"Extracted joints saved to {joints_path}")
 
 
-def main_orchestration():
-    """Main orchestration function that loads models and processes the video."""
-    cfg = parse_args_to_cfg()
+def main_orchestration(video_url=None):
+    """
+    Main orchestration function that loads models and processes the video.
+    
+    Parameters:
+        video_url (str, optional): A video URL to override the default video path.
+    """
+    cfg = parse_args_to_cfg(video_url_override=video_url)
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
     model, smplx_model = load_models(cfg)
@@ -227,4 +235,5 @@ def main_orchestration():
 
 
 if __name__ == "__main__":
-    main_orchestration()
+    # Pass the desired video URL here. If None, the default (or command-line) is used.
+    main_orchestration(video_url=video_url)
