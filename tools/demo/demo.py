@@ -20,7 +20,11 @@ from hmr4d.utils.video_io_utils import (
 )
 from hmr4d.utils.vis.cv2_utils import draw_bbx_xyxy_on_image_batch, draw_coco17_skeleton_batch
 
-from hmr4d.utils.preproc import Tracker, Extractor, VitPoseExtractor, SLAMModel
+
+from hmr4d.utils.preproc.tracker import Tracker
+from hmr4d.utils.preproc.vitfeat_extractor import Extractor
+from hmr4d.utils.preproc.vitpose import VitPoseExtractor
+from hmr4d.utils.preproc.slam import SLAMModel
 
 from hmr4d.utils.geo.hmr_cam import get_bbx_xys_from_xyxy, estimate_K, convert_K_to_K4, create_camera_sensor
 from hmr4d.utils.geo_transform import compute_cam_angvel
@@ -233,6 +237,9 @@ def render_global(cfg):
 
     # smpl
     smplx_out = smplx(**to_cuda(pred["smpl_params_global"]))
+    print("smplx_out", smplx_out.joints)
+    my_joints = smplx_out.joints
+    torch.save(my_joints, "my_joints.pt")
     pred_ay_verts = torch.stack([torch.matmul(smplx2smpl, v_) for v_ in smplx_out.vertices])
 
     def move_to_start_point_face_z(verts):
