@@ -50,7 +50,6 @@ def parse_args_to_cfg(video_url_override=None):
 
     # Check if the video argument is a URL. If so, download it.
     if args.video.startswith("http"):
-        Log.info(f"[Download] Downloading video from URL: {args.video}")
         response = requests.get(args.video, stream=True)
         response.raise_for_status()
         # Save the video to a randomly named file in the temps/ folder.
@@ -62,15 +61,12 @@ def parse_args_to_cfg(video_url_override=None):
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-        Log.info(f"[Download] Video downloaded to {temp_vid_path}")
         video_path = temp_vid_path
     else:
         video_path = Path(args.video)
 
     assert video_path.exists(), f"Video not found at {video_path}"
     length, width, height = get_video_lwh(video_path)
-    Log.info(f"[Input]: {video_path}")
-    Log.info(f"(L, W, H) = ({length}, {width}, {height})")
 
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
@@ -83,7 +79,6 @@ def parse_args_to_cfg(video_url_override=None):
         register_store_gvhmr()
         cfg = compose(config_name="demo", overrides=overrides)
 
-    Log.info(f"[Output Dir]: {cfg.output_dir}")
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
@@ -95,7 +90,6 @@ def parse_args_to_cfg(video_url_override=None):
 @torch.no_grad()
 def run_preprocess(cfg):
     """Run preprocessing to generate necessary inputs for HMR4D."""
-    Log.info("[Preprocess] Start!")
     tic = Log.time()
     video_path = cfg.video_path
     paths = cfg.paths
@@ -110,7 +104,6 @@ def run_preprocess(cfg):
         del tracker
     else:
         bbx_xys = torch.load(paths.bbx)["bbx_xys"]
-        Log.info(f"[Preprocess] Loaded bbx (xyxy, xys) from {paths.bbx}")
 
     # --- 2D Keypoints Extraction via VitPose ---
     if not Path(paths.vitpose).exists():
@@ -120,7 +113,6 @@ def run_preprocess(cfg):
         del vitpose_extractor
     else:
         vitpose = torch.load(paths.vitpose)
-        Log.info(f"[Preprocess] Loaded vitpose from {paths.vitpose}")
 
     # --- Vit Features Extraction ---
     if not Path(paths.vit_features).exists():
@@ -128,8 +120,8 @@ def run_preprocess(cfg):
         vit_features = extractor.extract_video_features(video_path, bbx_xys)
         torch.save(vit_features, paths.vit_features)
         del extractor
-    else:
-        Log.info(f"[Preprocess] Loaded vit_features from {paths.vit_features}")
+
+        
 
     # --- SLAM/DPVO (for non-static cameras) ---
     if not static_cam:
@@ -147,10 +139,6 @@ def run_preprocess(cfg):
                     break
             slam_results = slam.process()  # (L, 7) numpy array
             torch.save(slam_results, paths.slam)
-        else:
-            Log.info(f"[Preprocess] Loaded slam results from {paths.slam}")
-
-    Log.info(f"[Preprocess] End. Time elapsed: {Log.time()-tic:.2f}s")
 
 
 def load_data_dict(cfg):
@@ -180,12 +168,10 @@ def load_models(cfg):
     """
     Load the HMR4D model and the SMPL-X model for joint extraction.
     """
-    Log.info("[Model] Loading HMR4D model...")
     model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
     model.load_pretrained_model(cfg.ckpt_path)
     model = model.eval().cuda()
 
-    Log.info("[Model] Loading SMPL-X model for joint extraction...")
     smplx_model = make_smplx("supermotion").cuda()
 
     return model, smplx_model
@@ -209,25 +195,21 @@ def process_video(cfg, model, smplx_model):
 
     # Run HMR4D Prediction
     if not Path(paths.hmr4d_results).exists():
-        Log.info("[HMR4D] Predicting...")
         tic = Log.sync_time()
         pred = model.predict(data, static_cam=cfg.static_cam)
         pred = detach_to_cpu(pred)
         data_time = data["length"] / 30
-        Log.info(f"[HMR4D] Elapsed: {Log.sync_time() - tic:.2f}s for data-length={data_time:.1f}s")
         torch.save(pred, paths.hmr4d_results)
     else:
         pred = torch.load(paths.hmr4d_results)
 
     # Joint extraction using the SMPL-X model
-    Log.info("[Joint Extraction] Extracting joints from SMPL parameters...")
     smplx_out = smplx_model(**to_cuda(pred["smpl_params_global"]))
     joints = detach_to_cpu(smplx_out.joints)
 
     # Save joints to file
     joints_path = Path(cfg.output_dir) / "joints.pt"
     torch.save(joints, joints_path)
-    Log.info(f"Extracted joints saved to {joints_path}")
 
     return joints
 
@@ -243,8 +225,7 @@ def main_orchestration(video_url=None):
         list of lists: The extracted joints.
     """
     cfg = parse_args_to_cfg(video_url_override=video_url)
-    Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
-    Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
+
     model, smplx_model = load_models(cfg)
     joints_tensor = process_video(cfg, model, smplx_model)
     
@@ -253,7 +234,6 @@ def main_orchestration(video_url=None):
     if downloaded_video.parent.name == "temps":
         try:
             downloaded_video.unlink()
-            Log.info(f"Deleted downloaded video: {downloaded_video}")
         except Exception as e:
             Log.warning(f"Failed to delete downloaded video: {e}")
 
