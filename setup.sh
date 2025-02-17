@@ -49,7 +49,7 @@ echo "Setting CUDA environment variables..."
 export CUDA_HOME=/usr/local/cuda-12.1/
 export PATH=$PATH:/usr/local/cuda-12.1/bin/
 
-echo "Installing DPVO in editable mode using PEP517..."
+echo "Installing DPVO in editable mode ..."
 pip install -e .
 
 echo "Setup complete!"
