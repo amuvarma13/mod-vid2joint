@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e  # Exit immediately if any command exits with a non-zero status.
 
-# --- Clone the Repository ---
-echo "Cloning GVHMR repository..."
-git clone https://github.com/zju3dv/GVHMR --recursive
-cd GVHMR
 
 # --- Setup Conda Environment ---
 echo "Initializing conda..."
