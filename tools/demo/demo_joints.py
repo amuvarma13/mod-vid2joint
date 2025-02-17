@@ -252,6 +252,7 @@ if __name__ == "__main__":
     #map the dataset through 
     def map_fn(x):
         video_url = x["video_url"]
+        print("video_url: ", video_url)
         joints = main_orchestration(video_url=video_url)
         x["joints"] = joints
         return x
