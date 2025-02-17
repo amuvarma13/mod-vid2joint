@@ -37,7 +37,7 @@ unzip eigen-3.4.0.zip -d thirdparty && rm -rf eigen-3.4.0.zip
 # --- Install PyTorch and Other Dependencies ---
 echo "Installing PyTorch (torch), torch-scatter, numba, and pypose..."
 # Install PyTorch with CUDA 12.1 support
-pip install torch==2.3.0+cu121 torchvision==0.14.1+cu121 torchaudio==2.0.1 --extra-index-url https://download.pytorch.org/whl/cu121
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
 
 # Install torch-scatter using the corresponding torch version
 pip install torch-scatter -f "https://data.pyg.org/whl/torch-2.3.0+cu121.html"
@@ -50,6 +50,6 @@ export CUDA_HOME=/usr/local/cuda-12.1/
 export PATH=$PATH:/usr/local/cuda-12.1/bin/
 
 echo "Installing DPVO in editable mode using PEP517..."
-pip install -e . --use-pep517
+pip install -e .
 
 echo "Setup complete!"
