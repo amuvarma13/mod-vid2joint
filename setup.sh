@@ -34,8 +34,15 @@ wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
 echo "Unzipping Eigen and cleaning up..."
 unzip eigen-3.4.0.zip -d thirdparty && rm -rf eigen-3.4.0.zip
 
-echo "Installing torch-scatter, numba, and pypose..."
+# --- Install PyTorch and Other Dependencies ---
+echo "Installing PyTorch (torch), torch-scatter, numba, and pypose..."
+# Install PyTorch with CUDA 12.1 support
+pip install torch==2.3.0+cu121 torchvision==0.14.1+cu121 torchaudio==2.0.1 --extra-index-url https://download.pytorch.org/whl/cu121
+
+# Install torch-scatter using the corresponding torch version
 pip install torch-scatter -f "https://data.pyg.org/whl/torch-2.3.0+cu121.html"
+
+# Install additional dependencies
 pip install numba pypose
 
 echo "Setting CUDA environment variables..."
