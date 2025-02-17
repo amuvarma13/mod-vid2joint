@@ -1,46 +1,4 @@
 #!/bin/bash
-set -e  # Exit immediately if any command fails
-
-echo "Initializing conda..."
-# Initialize conda so that 'conda activate' works in this script.
-eval "$(conda shell.bash hook)"
-
-echo "Creating and activating the 'gvhmr' conda environment..."
-conda create -y -n gvhmr python=3.10
-conda activate gvhmr
-
-echo "Installing numpy==1.23.5 to satisfy ultralytics dependency..."
-pip install numpy==1.23.5
-
-echo "Installing GVHMR requirements and package in editable mode..."
-pip install -r requirements.txt
-pip install -e .
-
-echo "Entering DPVO directory..."
-cd third-party/DPVO
-
-echo "Downloading Eigen 3.4.0..."
-wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
-
-echo "Unzipping Eigen and cleaning up..."
-unzip eigen-3.4.0.zip -d thirdparty && rm -rf eigen-3.4.0.zip
-
-# Install PyTorch (with CUDA 12.1 support) BEFORE installing torch-scatter
-echo "Installing PyTorch, torchvision, and torchaudio with CUDA 12.1 support..."
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
-
-echo "Installing torch-scatter, numba, and pypose..."
-pip install torch-scatter -f "https://data.pyg.org/whl/torch-2.3.0+cu121.html"
-pip install numba pypose
-
-echo "Setting CUDA environment variables..."
-export CUDA_HOME=/usr/local/cuda-12.1/
-export PATH=$PATH:/usr/local/cuda-12.1/bin/
-
-echo "Installing DPVO in editable mode ..."
-pip install -e .
-
-cd ../../
 
 echo "Creating directories for inputs and outputs..."
 mkdir -p inputs/checkpoints
