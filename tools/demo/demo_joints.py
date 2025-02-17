@@ -179,6 +179,7 @@ def load_models(cfg):
 
 @torch.no_grad()
 def process_video(cfg, model, smplx_model):
+    print("Processing video...")
     """
     Orchestrate the video processing:
       1. Preprocess the video.
