@@ -27,6 +27,7 @@ einops
 imageio==2.34.1
 av  # imageio[pyav], improved performance over imageio[ffmpeg]
 joblib
+datasets
 
 # Diffusion
 # diffusers[torch]==0.19.3
