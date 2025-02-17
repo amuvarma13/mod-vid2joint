@@ -2,12 +2,8 @@
 set -e  # Exit immediately if any command fails
 
 ##########################################
-# Clone GVHMR and Set Up the Environment
+# Set Up the Environment
 ##########################################
-echo "Cloning GVHMR repository..."
-git clone https://github.com/zju3dv/GVHMR --recursive
-cd GVHMR
-
 echo "Initializing conda..."
 # Initialize conda so that 'conda activate' works in this script.
 eval "$(conda shell.bash hook)"
@@ -46,7 +42,7 @@ export PATH=$PATH:/usr/local/cuda-12.1/bin/
 echo "Installing DPVO in editable mode using PEP517..."
 pip install -e . --use-pep517
 
-# Return to the repository root
+# Return to the repository root (assuming you're already in the repository)
 cd ../../
 
 ##########################################
