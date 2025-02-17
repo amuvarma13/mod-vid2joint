@@ -31,20 +31,13 @@ wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
 echo "Unzipping Eigen and cleaning up..."
 unzip eigen-3.4.0.zip -d thirdparty && rm -rf eigen-3.4.0.zip
 
-echo "Downloading and unzipping DPVO checkpoint files..."
-
-# Install PyTorch before installing torch-scatter (this resolves the torch module error)
-echo "Installing PyTorch with CUDA 12.1 support..."
-pip install torch==2.3.0+cu121 torchvision==0.14.1+cu121 torchaudio==2.0.1 --extra-index-url https://download.pytorch.org/whl/cu121
-
-# Install torch-scatter, numba, and pypose
-
-
+# Install PyTorch (with CUDA 12.1 support) BEFORE installing torch-scatter
+echo "Installing PyTorch, torchvision, and torchaudio with CUDA 12.1 support..."
+pip install torch==2.3.0+cu121 torchvision==0.15.2+cu121 torchaudio==2.0.1 --extra-index-url https://download.pytorch.org/whl/cu121
 
 echo "Installing torch-scatter, numba, and pypose..."
 pip install torch-scatter -f "https://data.pyg.org/whl/torch-2.3.0+cu121.html"
 pip install numba pypose
-echo "numba and pypose installed successfully"
 
 echo "Setting CUDA environment variables..."
 export CUDA_HOME=/usr/local/cuda-12.1/
@@ -52,7 +45,7 @@ export PATH=$PATH:/usr/local/cuda-12.1/bin/
 
 echo "Installing DPVO in editable mode using PEP517..."
 pip install -e . --use-pep517
-echo "Finished pip installing"
+
 # Return to the repository root (assuming you're already in the repository)
 cd ../../
 
