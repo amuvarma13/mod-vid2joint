@@ -226,6 +226,7 @@ def main_orchestration(video_url=None):
         list of lists: The extracted joints.
     """
     cfg = parse_args_to_cfg(video_url_override=video_url)
+    print("cfg: ", cfg)
 
     model, smplx_model = load_models(cfg)
     joints_tensor = process_video(cfg, model, smplx_model)
