@@ -89,6 +89,7 @@ def parse_args_to_cfg(video_url_override=None):
 
 @torch.no_grad()
 def run_preprocess(cfg):
+    print("hello")
     """Run preprocessing to generate necessary inputs for HMR4D."""
     tic = Log.time()
     video_path = cfg.video_path
