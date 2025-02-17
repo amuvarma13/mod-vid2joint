@@ -45,7 +45,7 @@ export PATH=$PATH:/usr/local/cuda-12.1/bin/
 
 echo "Installing DPVO in editable mode using PEP517..."
 pip install -e . --use-pep517
-
+echo "Finished pip installing"
 # Return to the repository root (assuming you're already in the repository)
 cd ../../
 
