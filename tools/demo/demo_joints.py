@@ -89,7 +89,6 @@ def parse_args_to_cfg(video_url_override=None):
 
 @torch.no_grad()
 def run_preprocess(cfg):
-    print("hello")
     """Run preprocessing to generate necessary inputs for HMR4D."""
     tic = Log.time()
     video_path = cfg.video_path
@@ -256,7 +255,7 @@ if __name__ == "__main__":
         x["joints"] = joints
         return x
     start_time = time.time()
-    ds = ds.map(map_fn, num_proc=1)
+    ds = ds.map(map_fn, num_proc=4)
     print("Time taken: ", time.time() - start_time)
     
     print(ds)
