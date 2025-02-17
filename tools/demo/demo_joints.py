@@ -244,21 +244,24 @@ def main_orchestration(video_url=None):
 
 if __name__ == "__main__":
     # Pass the desired video URL here. If None, the default (or command-line) is used.
-    
-    dsn = "amuvarma/video_url_one_person-debug"
-    ds = load_dataset(dsn, split="train")
-    ds = ds.select(range(4))
 
-    #map the dataset through 
-    def map_fn(x):
-        video_url = x["video_url"]
-        print("video_url: ", video_url)
-        joints = main_orchestration(video_url=video_url)
-        x["joints"] = joints
-        return x
-    start_time = time.time()
-    ds = ds.map(map_fn, num_proc=4)
-    print("Time taken: ", time.time() - start_time)
+    vurl = "https://firebasestorage.googleapis.com/v0/b/humanview-d6bc8.appspot.com/o/cropped_video.mp4?alt=media&token=8e90ea8c-9e13-40af-a96b-690b218be515"
+    joints = main_orchestration(video_url=vurl)
+    print(joints)
+    # dsn = "amuvarma/video_url_one_person-debug"
+    # ds = load_dataset(dsn, split="train")
+    # ds = ds.select(range(4))
+
+    # #map the dataset through 
+    # def map_fn(x):
+    #     video_url = x["video_url"]
+    #     print("video_url: ", video_url)
+    #     joints = main_orchestration(video_url=video_url)
+    #     x["joints"] = joints
+    #     return x
+    # start_time = time.time()
+    # ds = ds.map(map_fn, num_proc=4)
+    # print("Time taken: ", time.time() - start_time)
     
-    print(ds)
-    ds.push_to_hub("amuvarma/video_url_one_person-debug-joints")
+    # print(ds)
+    # ds.push_to_hub("amuvarma/video_url_one_person-debug-joints")
