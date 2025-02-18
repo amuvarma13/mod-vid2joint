@@ -22,7 +22,7 @@ from hmr4d.utils.smplx_utils import make_smplx
 
 def parse_args_to_cfg():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", type=str, default="docs/example_video/tennis.mp4",
+    parser.add_argument("--video", type=str, default="inputs/demo/tennis.mp4",
                         help="Path to input video")
     parser.add_argument("--static_cam", action="store_true", 
                         help="If true, skip SLAM (DPVO)")
@@ -114,7 +114,13 @@ if __name__ == "__main__":
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU Properties]: {torch.cuda.get_device_properties('cuda')}")
     
-    # Inject the configuration into the SLAM module to avoid the NameError
+    # Monkey-patch cfg to add a dummy merge_from_file if it doesn't exist
+    if not hasattr(cfg, "merge_from_file"):
+        def dummy_merge_from_file(file_path):
+            Log.info(f"[Dummy] merge_from_file called with {file_path}; skipping.")
+        cfg.merge_from_file = dummy_merge_from_file
+
+    # Inject the patched configuration into the SLAM module
     import hmr4d.utils.preproc.slam as slam_module
     slam_module.cfg = cfg
 
