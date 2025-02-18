@@ -204,11 +204,9 @@ if __name__ == "__main__":
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f'[GPU]: {torch.cuda.get_device_properties("cuda")}')
 
-    # ===== Preprocess and save to disk ===== #
     run_preprocess(cfg)
     data = load_data_dict(cfg)
 
-    # ===== HMR4D ===== #
     if not Path(paths.hmr4d_results).exists():
         Log.info("[HMR4D] Predicting")
         model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
