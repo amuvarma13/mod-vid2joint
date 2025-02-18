@@ -223,62 +223,14 @@ def render_global(cfg):
         Log.info(f"[Render Global] Video already exists at {global_video_path}")
         return
 
-    debug_cam = False
     pred = torch.load(cfg.paths.hmr4d_results)
     smplx = make_smplx("supermotion").cuda()
-    smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt").cuda()
-    faces_smpl = make_smplx("smpl").faces
-    J_regressor = torch.load("hmr4d/utils/body_model/smpl_neutral_J_regressor.pt").cuda()
-
     # smpl
     smplx_out = smplx(**to_cuda(pred["smpl_params_global"]))
     print("smplx_out", smplx_out.joints)
     my_joints = smplx_out.joints
-    torch.save(my_joints, "my_joints.pt")
-    pred_ay_verts = torch.stack([torch.matmul(smplx2smpl, v_) for v_ in smplx_out.vertices])
+    return my_joints
 
-    def move_to_start_point_face_z(verts):
-        "XZ to origin, Start from the ground, Face-Z"
-        # position
-        verts = verts.clone()  # (L, V, 3)
-        offset = einsum(J_regressor, verts[0], "j v, v i -> j i")[0]  # (3)
-        offset[1] = verts[:, :, [1]].min()
-        verts = verts - offset
-        # face direction
-        T_ay2ayfz = compute_T_ayfz2ay(einsum(J_regressor, verts[[0]], "j v, l v i -> l j i"), inverse=True)
-        verts = apply_T_on_points(verts, T_ay2ayfz)
-        return verts
-
-    verts_glob = move_to_start_point_face_z(pred_ay_verts)
-    joints_glob = einsum(J_regressor, verts_glob, "j v, l v i -> l j i")  # (L, J, 3)
-    global_R, global_T, global_lights = get_global_cameras_static(
-        verts_glob.cpu(),
-        beta=2.0,
-        cam_height_degree=20,
-        target_center_height=1.0,
-    )
-
-    # -- rendering code -- #
-    video_path = cfg.video_path
-    length, width, height = get_video_lwh(video_path)
-    _, _, K = create_camera_sensor(width, height, 24)  # render as 24mm lens
-
-    # renderer
-    renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K)
-    # renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K, bin_size=0)
-
-    # -- render mesh -- #
-    scale, cx, cz = get_ground_params_from_points(joints_glob[:, 0], verts_glob)
-    renderer.set_ground(scale * 1.5, cx, cz)
-    color = torch.ones(3).float().cuda() * 0.8
-
-    render_length = length if not debug_cam else 8
-    writer = get_writer(global_video_path, fps=30, crf=CRF)
-    for i in tqdm(range(render_length), desc=f"Rendering Global"):
-        cameras = renderer.create_camera(global_R[i], global_T[i])
-        img = renderer.render_with_ground(verts_glob[[i]], color[None], cameras, global_lights)
-        writer.write_frame(img)
-    writer.close()
 
 
 if __name__ == "__main__":
@@ -306,7 +258,8 @@ if __name__ == "__main__":
 
     # ===== Render ===== #
     # render_incam(cfg)
-    render_global(cfg)
+    my_js = render_global(cfg)
+    print("my_js", my_js)
     # if not Path(paths.incam_global_horiz_video).exists():
     #     Log.info("[Merge Videos]")
     #     merge_videos_horizontal([paths.incam_video, paths.global_video], paths.incam_global_horiz_video)
