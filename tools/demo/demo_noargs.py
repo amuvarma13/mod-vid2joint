@@ -40,40 +40,46 @@ from einops import einsum, rearrange
 CRF = 23  # 17 is lossless, every +6 halves the mp4 size
 
 
-def parse_args_to_cfg(video_path_input):
-    # Use the provided video path instead of reading from args
-    output_root = None         # Default: change as needed
-    static_cam = False         # Default: change as needed
-    verbose = False            # Default: change as needed
+def parse_args_to_cfg():
+    # Put all args to cfg
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--video", type=str, default="docs/example_video/tennis.mp4")
+    parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
+    parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
+    parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
+    args = parser.parse_args()
 
-    video_path = Path(video_path_input)
-    if not video_path.exists():
-        raise FileNotFoundError(f"Video not found at {video_path}")
+    # Input
+    video_path = Path(args.video)
+    assert video_path.exists(), f"Video not found at {video_path}"
     length, width, height = get_video_lwh(video_path)
     Log.info(f"[Input]: {video_path}")
     Log.info(f"(L, W, H) = ({length}, {width}, {height})")
-
-    with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
+    # Cfg
+    with initialize_config_module(version_base="1.3", config_module=f"hmr4d.configs"):
         overrides = [
             f"video_name={video_path.stem}",
-            f"static_cam={static_cam}",
-            f"verbose={verbose}",
+            f"static_cam={args.static_cam}",
+            f"verbose={args.verbose}",
         ]
-        if output_root is not None:
-            overrides.append(f"output_root={output_root}")
+
+        # Allow to change output root
+        if args.output_root is not None:
+            overrides.append(f"output_root={args.output_root}")
         register_store_gvhmr()
         cfg = compose(config_name="demo", overrides=overrides)
 
+    # Output
     Log.info(f"[Output Dir]: {cfg.output_dir}")
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Copy raw-input-video to cfg.video_path if needed
+    # Copy raw-input-video to video_path
     Log.info(f"[Copy Video] {video_path} -> {cfg.video_path}")
     if not Path(cfg.video_path).exists() or get_video_lwh(video_path)[0] != get_video_lwh(cfg.video_path)[0]:
         reader = get_video_reader(video_path)
         writer = get_writer(cfg.video_path, fps=30, crf=CRF)
-        for img in tqdm(reader, total=get_video_lwh(video_path)[0], desc="Copy"):
+        for img in tqdm(reader, total=get_video_lwh(video_path)[0], desc=f"Copy"):
             writer.write_frame(img)
         writer.close()
         reader.close()
@@ -193,7 +199,7 @@ def render_global(cfg):
 
 
 if __name__ == "__main__":
-    cfg = parse_args_to_cfg("docs/example_video/tennis.mp4")
+    cfg = parse_args_to_cfg()
     paths = cfg.paths
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f'[GPU]: {torch.cuda.get_device_properties("cuda")}')
