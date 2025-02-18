@@ -22,7 +22,7 @@ from hmr4d.utils.smplx_utils import make_smplx
 
 def parse_args_to_cfg():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", type=str, default="docs/example_video/tennis.mp4",
+    parser.add_argument("--video", type=str, default="inputs/demo/tennis.mp4",
                         help="Path to input video")
     parser.add_argument("--static_cam", action="store_true", 
                         help="If true, skip SLAM (DPVO)")
@@ -114,6 +114,10 @@ if __name__ == "__main__":
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU Properties]: {torch.cuda.get_device_properties('cuda')}")
     
+    # Inject the configuration into the SLAM module to avoid the NameError
+    import hmr4d.utils.preproc.slam as slam_module
+    slam_module.cfg = cfg
+
     # Run full preprocessing (tracker, VitPose, ViT features, SLAM)
     data = run_preprocess(cfg)
     
