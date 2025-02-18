@@ -306,7 +306,7 @@ if __name__ == "__main__":
 
     # ===== Render ===== #
     # render_incam(cfg)
-    # render_global(cfg)
+    render_global(cfg)
     # if not Path(paths.incam_global_horiz_video).exists():
     #     Log.info("[Merge Videos]")
     #     merge_videos_horizontal([paths.incam_video, paths.global_video], paths.incam_global_horiz_video)
