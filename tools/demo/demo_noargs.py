@@ -193,7 +193,7 @@ def render_global(cfg):
 
 
 if __name__ == "__main__":
-    cfg = parse_args_to_cfg()
+    cfg = parse_args_to_cfg("docs/example_video/tennis.mp4")
     paths = cfg.paths
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f'[GPU]: {torch.cuda.get_device_properties("cuda")}')
