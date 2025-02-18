@@ -211,11 +211,6 @@ def render_incam(cfg):
     for i, img_raw in tqdm(enumerate(reader), total=get_video_lwh(video_path)[0], desc=f"Rendering Incam"):
         img = renderer.render_mesh(verts_incam[i].cuda(), img_raw, [0.8, 0.8, 0.8])
 
-        # # bbx
-        # bbx_xys_ = bbx_xys_render[i].cpu().numpy()
-        # lu_point = (bbx_xys_[:2] - bbx_xys_[2:] / 2).astype(int)
-        # rd_point = (bbx_xys_[:2] + bbx_xys_[2:] / 2).astype(int)
-        # img = cv2.rectangle(img, lu_point, rd_point, (255, 178, 102), 2)
 
         writer.write_frame(img)
     writer.close()
@@ -310,8 +305,8 @@ if __name__ == "__main__":
         torch.save(pred, paths.hmr4d_results)
 
     # ===== Render ===== #
-    render_incam(cfg)
-    render_global(cfg)
-    if not Path(paths.incam_global_horiz_video).exists():
-        Log.info("[Merge Videos]")
-        merge_videos_horizontal([paths.incam_video, paths.global_video], paths.incam_global_horiz_video)
+    # render_incam(cfg)
+    # render_global(cfg)
+    # if not Path(paths.incam_global_horiz_video).exists():
+    #     Log.info("[Merge Videos]")
+    #     merge_videos_horizontal([paths.incam_video, paths.global_video], paths.incam_global_horiz_video)
