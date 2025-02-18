@@ -40,46 +40,40 @@ from einops import einsum, rearrange
 CRF = 23  # 17 is lossless, every +6 halves the mp4 size
 
 
-def parse_args_to_cfg():
-    # Put all args to cfg
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--video", type=str, default="inputs/demo/dance_3.mp4")
-    parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
-    parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
-    parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
-    args = parser.parse_args()
+def parse_args_to_cfg(video_path_input):
+    # Use the provided video path instead of reading from args
+    output_root = None         # Default: change as needed
+    static_cam = False         # Default: change as needed
+    verbose = False            # Default: change as needed
 
-    # Input
-    video_path = Path(args.video)
-    assert video_path.exists(), f"Video not found at {video_path}"
+    video_path = Path(video_path_input)
+    if not video_path.exists():
+        raise FileNotFoundError(f"Video not found at {video_path}")
     length, width, height = get_video_lwh(video_path)
     Log.info(f"[Input]: {video_path}")
     Log.info(f"(L, W, H) = ({length}, {width}, {height})")
-    # Cfg
-    with initialize_config_module(version_base="1.3", config_module=f"hmr4d.configs"):
+
+    with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
             f"video_name={video_path.stem}",
-            f"static_cam={args.static_cam}",
-            f"verbose={args.verbose}",
+            f"static_cam={static_cam}",
+            f"verbose={verbose}",
         ]
-
-        # Allow to change output root
-        if args.output_root is not None:
-            overrides.append(f"output_root={args.output_root}")
+        if output_root is not None:
+            overrides.append(f"output_root={output_root}")
         register_store_gvhmr()
         cfg = compose(config_name="demo", overrides=overrides)
 
-    # Output
     Log.info(f"[Output Dir]: {cfg.output_dir}")
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Copy raw-input-video to video_path
+    # Copy raw-input-video to cfg.video_path if needed
     Log.info(f"[Copy Video] {video_path} -> {cfg.video_path}")
     if not Path(cfg.video_path).exists() or get_video_lwh(video_path)[0] != get_video_lwh(cfg.video_path)[0]:
         reader = get_video_reader(video_path)
         writer = get_writer(cfg.video_path, fps=30, crf=CRF)
-        for img in tqdm(reader, total=get_video_lwh(video_path)[0], desc=f"Copy"):
+        for img in tqdm(reader, total=get_video_lwh(video_path)[0], desc="Copy"):
             writer.write_frame(img)
         writer.close()
         reader.close()
@@ -180,41 +174,6 @@ def load_data_dict(cfg):
     return data
 
 
-def render_incam(cfg):
-    incam_video_path = Path(cfg.paths.incam_video)
-    if incam_video_path.exists():
-        Log.info(f"[Render Incam] Video already exists at {incam_video_path}")
-        return
-
-    pred = torch.load(cfg.paths.hmr4d_results)
-    smplx = make_smplx("supermotion").cuda()
-    smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt").cuda()
-    faces_smpl = make_smplx("smpl").faces
-
-    # smpl
-    smplx_out = smplx(**to_cuda(pred["smpl_params_incam"]))
-    pred_c_verts = torch.stack([torch.matmul(smplx2smpl, v_) for v_ in smplx_out.vertices])
-
-    # -- rendering code -- #
-    video_path = cfg.video_path
-    length, width, height = get_video_lwh(video_path)
-    K = pred["K_fullimg"][0]
-
-    # renderer
-    renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K)
-    reader = get_video_reader(video_path)  # (F, H, W, 3), uint8, numpy
-    bbx_xys_render = torch.load(cfg.paths.bbx)["bbx_xys"]
-
-    # -- render mesh -- #
-    verts_incam = pred_c_verts
-    writer = get_writer(incam_video_path, fps=30, crf=CRF)
-    for i, img_raw in tqdm(enumerate(reader), total=get_video_lwh(video_path)[0], desc=f"Rendering Incam"):
-        img = renderer.render_mesh(verts_incam[i].cuda(), img_raw, [0.8, 0.8, 0.8])
-
-
-        writer.write_frame(img)
-    writer.close()
-    reader.close()
 
 
 def render_global(cfg):
@@ -256,10 +215,6 @@ if __name__ == "__main__":
         Log.info(f"[HMR4D] Elapsed: {Log.sync_time() - tic:.2f}s for data-length={data_time:.1f}s")
         torch.save(pred, paths.hmr4d_results)
 
-    # ===== Render ===== #
-    # render_incam(cfg)
+ 
     my_js = render_global(cfg)
     print("my_js", my_js)
-    # if not Path(paths.incam_global_horiz_video).exists():
-    #     Log.info("[Merge Videos]")
-    #     merge_videos_horizontal([paths.incam_video, paths.global_video], paths.incam_global_horiz_video)
