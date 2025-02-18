@@ -22,7 +22,7 @@ from hmr4d.utils.smplx_utils import make_smplx
 
 def parse_args_to_cfg():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", type=str, default="inputs/demo/tennis.mp4",
+    parser.add_argument("--video", type=str, default="docs/example_video/tennis.mp4",
                         help="Path to input video")
     parser.add_argument("--static_cam", action="store_true", 
                         help="If true, skip SLAM (DPVO)")
