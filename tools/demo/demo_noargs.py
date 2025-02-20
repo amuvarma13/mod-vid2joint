@@ -226,4 +226,4 @@ if __name__ == "__main__":
     #convert my_js to numpy
     my_js = my_js.cpu().numpy()
     #save as npy
-    np.save('my_js.npy', my_js)
+    np.save('test/my_js.npy', my_js)
