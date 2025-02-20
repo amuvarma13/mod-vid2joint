@@ -3,8 +3,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
-base_repo_id = "test/"
-upload_name = "amuvarma/test_ptjoints"
+base_repo_id = "outputs/demo/chloe/"
+upload_name = "amuvarma/video_ptjoints"
 
 
 def upload_single_file(args):
