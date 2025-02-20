@@ -222,3 +222,8 @@ if __name__ == "__main__":
  
     my_js = render_global(cfg)
     print("my_js", my_js)
+
+    #convert my_js to numpy
+    my_js = my_js.cpu().numpy()
+    #save as npy
+    np.save('my_js.npy', my_js)
