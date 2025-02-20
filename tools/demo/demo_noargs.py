@@ -43,7 +43,7 @@ CRF = 23  # 17 is lossless, every +6 halves the mp4 size
 def parse_args_to_cfg():
     # Put all args to cfg
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", type=str, default="docs/example_video/tennis.mp4")
+    parser.add_argument("--video", type=str, default="docs/example_video/chloe.mp4")
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
     parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
     parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
