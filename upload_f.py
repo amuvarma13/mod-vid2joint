@@ -3,7 +3,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
-base_repo_id = "outputs/demo/chloe/"
+base_repo_id = "outputs/demo/"
 upload_name = "amuvarma/video_ptjoints"
 
 
